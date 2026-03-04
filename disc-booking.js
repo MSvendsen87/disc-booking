@@ -98,7 +98,7 @@
   titleBox.appendChild(titleB);
 
   var titleS = document.createElement("span");
-  titleS.textContent = "Viser kun tider som finnes i beholdning. Fortid filtreres bort. Du kan legge flere tider i handlekurven.";
+  titleS.textContent = "Viser kun tider som er ledige. Du kan legge flere tider i handlekurven.";
   titleBox.appendChild(titleS);
 
   var cartBtn = document.createElement("a");
