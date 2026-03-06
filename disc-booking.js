@@ -1,111 +1,258 @@
 (function () {
+  console.log("[DISC BOOKING v4] LOADED");
 
-  console.log("[DISC BOOKING v3] LOADED");
+  /* ------------------------------------------------ */
+  /* KONFIG */
+  /* ------------------------------------------------ */
 
-  // Produkt
   var PRODUCT_DISC = "1320";
-
-  // Quickbutik eventId
   var EVENT_ID = "9847005";
-
-  // Handlekurv-side (Quickbutik bruker ofte /cart/index)
   var CART_URL = "/cart/index";
 
-  // API (samme worker som dart)
   var API_BASE = "https://cold-shadow-36dc.post-cd6.workers.dev/products/";
   var API_DISC = API_BASE + PRODUCT_DISC;
 
-  // Path check
-  var path = String(location.pathname || "");
-  while (path.length && path.charAt(path.length - 1) === "/" && path !== "/") path = path.slice(0, -1);
-  if (path !== "/sider/disc-booking") return;
+  var PAGE_PATH = "/sider/disc-booking";
+  var ROOT_ID = "disc-booking-app";
 
-  // Root (din HTML)
-  var app = document.getElementById("disc-booking-app");
+  var CUTOFF_MINUTES_BEFORE_START = 20;
+
+  /* ------------------------------------------------ */
+  /* PATH / ROOT */
+  /* ------------------------------------------------ */
+
+  var path = String(location.pathname || "");
+  while (path.length && path.charAt(path.length - 1) === "/" && path !== "/") {
+    path = path.slice(0, -1);
+  }
+  if (path !== PAGE_PATH) return;
+
+  var app = document.getElementById(ROOT_ID);
   if (!app) return;
   app.innerHTML = "";
 
-  // -----------------------------
-  // Styles (samme GK dark, enkel)
-  // -----------------------------
+  /* ------------------------------------------------ */
+  /* CSS */
+  /* ------------------------------------------------ */
+
   function injectCSS() {
-    if (document.getElementById("gk-disc-css-v3")) return;
+    if (document.getElementById("gk-disc-css-v4")) return;
 
     var css = ""
-      + ":root{--gk-bg:#111;--gk-card:#171717;--gk-card2:#1c1c1c;--gk-line:rgba(255,255,255,.10);--gk-text:rgba(255,255,255,.92);--gk-muted:rgba(255,255,255,.72);--gk-ac:#2bd18b;--gk-ac2:#7dffb8}"
-      + "#disc-booking-app{color:var(--gk-text)}"
-      + ".gk-b-top{position:sticky;top:0;z-index:8;background:linear-gradient(180deg, rgba(17,17,17,.92), rgba(17,17,17,.82));backdrop-filter:blur(10px);border:1px solid var(--gk-line);border-radius:16px;padding:12px;margin:10px 0 14px 0;box-shadow:0 10px 30px rgba(0,0,0,.25)}"
-      + ".gk-top-row1{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}"
-      + ".gk-top-title{display:flex;flex-direction:column;gap:4px}"
-      + ".gk-top-title b{font-size:14px;letter-spacing:.2px}"
-      + ".gk-top-title span{font-size:12px;color:var(--gk-muted);line-height:1.25}"
-      + ".gk-cartbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 14px;border-radius:14px;border:1px solid rgba(43,209,139,.55);background:linear-gradient(135deg, rgba(43,209,139,.18), rgba(125,255,184,.08));color:var(--gk-text);text-decoration:none;font-weight:900;white-space:nowrap;min-width:170px}"
-      + ".gk-cartbtn:active{transform:scale(.99)}"
-      + ".gk-status{padding:8px 2px;color:var(--gk-muted);font-size:12px}"
-      + ".gk-cal{border:1px solid var(--gk-line);border-radius:16px;overflow:hidden;background:linear-gradient(180deg, var(--gk-card), var(--gk-card2));box-shadow:0 10px 30px rgba(0,0,0,.18)}"
-      + ".gk-cal-head{padding:12px;border-bottom:1px solid var(--gk-line);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}"
-      + ".gk-cal-title{font-weight:900;font-size:16px}"
-      + ".gk-cal-nav{display:flex;gap:8px;align-items:center}"
-      + ".gk-navbtn{padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:var(--gk-text);cursor:pointer;font-weight:900}"
-      + ".gk-navbtn:active{transform:scale(.99)}"
-      + ".gk-chips{display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding:12px;border-bottom:1px solid var(--gk-line);scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x}"
-      + ".gk-chips::-webkit-scrollbar{display:none}"
-      + ".gk-chip{flex:0 0 auto;min-width:86px;padding:10px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);cursor:pointer;color:var(--gk-text);text-align:left}"
-      + ".gk-chip[data-active='1']{border-color:rgba(43,209,139,.75);background:linear-gradient(135deg, rgba(43,209,139,.18), rgba(125,255,184,.08))}"
-      + ".gk-chip-top{font-weight:900;font-size:13px;line-height:1.05}"
-      + ".gk-chip-sub{font-size:11px;color:var(--gk-muted);margin-top:4px}"
-      + ".gk-grid{padding:12px;display:flex;flex-direction:column;gap:10px}"
-      + ".gk-row{display:grid;grid-template-columns:92px 1fr;gap:10px;align-items:stretch}"
-      + ".gk-time{display:flex;align-items:center;justify-content:flex-start;font-weight:900;opacity:.95}"
-      + ".gk-lbtn{width:100%;padding:14px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:var(--gk-text);cursor:pointer;font-weight:900}"
-      + ".gk-lbtn:hover{border-color:rgba(43,209,139,.55)}"
-      + ".gk-lbtn:active{transform:scale(.99)}"
-      + ".gk-lbtn[disabled]{opacity:.65;cursor:not-allowed}"
-      + ".gk-lbtn.gk-ok{border-color:rgba(43,209,139,.75);background:linear-gradient(135deg, rgba(43,209,139,.18), rgba(125,255,184,.08))}"
-      + ".gk-note{padding:12px;color:var(--gk-muted);font-size:12px;line-height:1.35}"
-      + ".gk-empty{padding:16px 12px;color:var(--gk-muted)}"
-      + "@media (min-width:900px){.gk-row{grid-template-columns:130px 1fr}.gk-cal-title{font-size:18px}}";
+      + ":root{"
+      + "--gk-bg:#0f0f0f;"
+      + "--gk-card:#171717;"
+      + "--gk-card2:#101010;"
+      + "--gk-soft:#1e1e1e;"
+      + "--gk-line:rgba(255,255,255,.10);"
+      + "--gk-text:rgba(255,255,255,.94);"
+      + "--gk-muted:rgba(255,255,255,.72);"
+      + "--gk-ac:#2bd18b;"
+      + "--gk-ac2:#7dffb8;"
+      + "--gk-gold:#f0c14b;"
+      + "--gk-red:#ff7676;"
+      + "}"
 
+      + "#disc-booking-app{max-width:1040px;margin:0 auto;padding:12px;color:var(--gk-text)}"
+
+      + ".gk-status{padding:0 0 10px 0;color:var(--gk-muted);font-size:13px}"
+
+      + ".gk-top{"
+      + "position:relative;"
+      + "overflow:hidden;"
+      + "border:1px solid var(--gk-line);"
+      + "border-radius:22px;"
+      + "padding:16px;"
+      + "background:radial-gradient(circle at top right, rgba(43,209,139,.12), transparent 42%), linear-gradient(180deg,var(--gk-card),var(--gk-card2));"
+      + "box-shadow:0 18px 50px rgba(0,0,0,.35);"
+      + "margin:0 0 14px 0;"
+      + "}"
+
+      + ".gk-top-grid{display:grid;grid-template-columns:1fr;gap:14px;align-items:center}"
+      + ".gk-top-title{display:flex;flex-direction:column;gap:8px;min-width:0}"
+      + ".gk-top-title b{font-size:25px;line-height:1.08;letter-spacing:.2px}"
+      + ".gk-top-title span{font-size:14px;color:var(--gk-muted);line-height:1.45}"
+
+      + ".gk-meta{display:flex;flex-wrap:wrap;gap:8px}"
+      + ".gk-chip-meta{"
+      + "display:inline-flex;align-items:center;justify-content:center;"
+      + "min-height:36px;padding:8px 12px;border-radius:999px;"
+      + "border:1px solid rgba(255,255,255,.10);"
+      + "background:rgba(255,255,255,.05);"
+      + "font-size:13px;font-weight:800;color:var(--gk-text)"
+      + "}"
+      + ".gk-chip-meta.price{"
+      + "border-color:rgba(240,193,75,.35);"
+      + "background:linear-gradient(135deg, rgba(240,193,75,.18), rgba(240,193,75,.06));"
+      + "color:#ffe29b"
+      + "}"
+      + ".gk-chip-meta.warn{"
+      + "border-color:rgba(255,118,118,.28);"
+      + "background:linear-gradient(135deg, rgba(255,118,118,.14), rgba(255,118,118,.06));"
+      + "color:#ffc1c1"
+      + "}"
+
+      + ".gk-top-actions{display:flex;flex-wrap:wrap;gap:10px}"
+      + ".gk-cartbtn{"
+      + "display:inline-flex;align-items:center;justify-content:center;gap:8px;"
+      + "min-height:46px;padding:12px 16px;border-radius:14px;"
+      + "border:1px solid rgba(43,209,139,.55);"
+      + "background:linear-gradient(135deg, rgba(43,209,139,.18), rgba(125,255,184,.08));"
+      + "color:var(--gk-text);text-decoration:none;font-weight:900;"
+      + "width:100%;"
+      + "}"
+      + ".gk-cartbtn:active{transform:scale(.99)}"
+
+      + ".gk-cal{"
+      + "border:1px solid var(--gk-line);"
+      + "border-radius:22px;"
+      + "overflow:hidden;"
+      + "background:linear-gradient(180deg,var(--gk-card),var(--gk-card2));"
+      + "box-shadow:0 18px 50px rgba(0,0,0,.30)"
+      + "}"
+
+      + ".gk-cal-head{padding:14px;border-bottom:1px solid var(--gk-line);display:flex;flex-direction:column;gap:12px}"
+      + ".gk-cal-title{font-size:18px;font-weight:900;line-height:1.1}"
+      + ".gk-cal-sub{font-size:13px;color:var(--gk-muted);line-height:1.4}"
+
+      + ".gk-cal-nav{display:grid;grid-template-columns:1fr 1fr;gap:10px}"
+      + ".gk-navbtn{"
+      + "min-height:42px;border-radius:14px;border:1px solid rgba(255,255,255,.14);"
+      + "background:rgba(255,255,255,.05);color:var(--gk-text);font-weight:900;cursor:pointer;padding:10px 12px"
+      + "}"
+      + ".gk-navbtn:active{transform:scale(.99)}"
+
+      + ".gk-chips-wrap{padding:12px 12px 0 12px}"
+      + ".gk-chips{display:flex;gap:10px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}"
+      + ".gk-chips::-webkit-scrollbar{display:none}"
+
+      + ".gk-chip{"
+      + "flex:0 0 auto;min-width:92px;"
+      + "padding:12px 12px;border-radius:16px;border:1px solid rgba(255,255,255,.10);"
+      + "background:rgba(255,255,255,.04);color:var(--gk-text);cursor:pointer;text-align:left"
+      + "}"
+      + ".gk-chip[data-active='1']{border-color:rgba(43,209,139,.70);background:linear-gradient(135deg, rgba(43,209,139,.18), rgba(125,255,184,.08))}"
+      + ".gk-chip-top{font-weight:900;font-size:14px;line-height:1.05}"
+      + ".gk-chip-sub{font-size:11px;color:var(--gk-muted);margin-top:5px}"
+
+      + ".gk-grid{padding:12px;display:flex;flex-direction:column;gap:12px}"
+
+      + ".gk-slot{"
+      + "border:1px solid rgba(255,255,255,.08);"
+      + "border-radius:18px;"
+      + "padding:14px;"
+      + "background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));"
+      + "display:flex;flex-direction:column;gap:12px"
+      + "}"
+
+      + ".gk-slot-left{display:flex;flex-direction:column;gap:8px}"
+      + ".gk-slot-time{font-size:21px;font-weight:900;line-height:1.05}"
+      + ".gk-slot-meta{display:flex;flex-wrap:wrap;gap:8px}"
+
+      + ".gk-mini{"
+      + "display:inline-flex;align-items:center;justify-content:center;"
+      + "padding:8px 10px;border-radius:12px;"
+      + "background:rgba(255,255,255,.05);"
+      + "border:1px solid rgba(255,255,255,.08);"
+      + "font-size:12px;font-weight:800;color:var(--gk-text)"
+      + "}"
+      + ".gk-mini.price{"
+      + "border-color:rgba(240,193,75,.30);"
+      + "background:linear-gradient(135deg, rgba(240,193,75,.16), rgba(240,193,75,.06));"
+      + "color:#ffe29b"
+      + "}"
+      + ".gk-mini.warn{"
+      + "border-color:rgba(255,118,118,.30);"
+      + "background:linear-gradient(135deg, rgba(255,118,118,.12), rgba(255,118,118,.05));"
+      + "color:#ffc1c1"
+      + "}"
+
+      + ".gk-slot-right{display:flex;align-items:center;justify-content:stretch}"
+      + ".gk-bookbtn{"
+      + "width:100%;min-height:48px;padding:12px 14px;border-radius:16px;"
+      + "border:1px solid rgba(43,209,139,.55);"
+      + "background:linear-gradient(135deg, rgba(43,209,139,.18), rgba(125,255,184,.08));"
+      + "color:var(--gk-text);font-weight:900;cursor:pointer"
+      + "}"
+      + ".gk-bookbtn:active{transform:scale(.99)}"
+      + ".gk-bookbtn[disabled]{opacity:.78;cursor:not-allowed;transform:none}"
+      + ".gk-bookbtn.gk-ok{border-color:rgba(43,209,139,.75)}"
+      + ".gk-bookbtn.gk-locked{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05)}"
+      + ".gk-bookbtn.gk-stopped{border-color:rgba(255,118,118,.28);background:rgba(255,118,118,.08)}"
+
+      + ".gk-note{padding:0 14px 14px 14px;color:var(--gk-muted);font-size:12px;line-height:1.45}"
+      + ".gk-empty{padding:18px 14px;color:var(--gk-muted)}"
+
+      + "@media (min-width:760px){"
+      + "#disc-booking-app{padding:16px}"
+      + ".gk-top{padding:20px}"
+      + ".gk-top-grid{grid-template-columns:1fr auto;align-items:end}"
+      + ".gk-cartbtn{width:auto;min-width:190px}"
+      + ".gk-cal-head{flex-direction:row;align-items:end;justify-content:space-between}"
+      + ".gk-cal-nav{display:flex;grid-template-columns:none}"
+      + ".gk-slot{flex-direction:row;align-items:center;justify-content:space-between}"
+      + ".gk-slot-right{flex:0 0 190px;justify-content:flex-end}"
+      + ".gk-bookbtn{width:auto;min-width:170px}"
+      + "}";
     var style = document.createElement("style");
-    style.id = "gk-disc-css-v3";
+    style.id = "gk-disc-css-v4";
     style.type = "text/css";
     style.appendChild(document.createTextNode(css));
     document.head.appendChild(style);
   }
   injectCSS();
 
-  // -----------------------------
-  // UI
-  // -----------------------------
+  /* ------------------------------------------------ */
+  /* UI */
+  /* ------------------------------------------------ */
+
   var status = document.createElement("div");
   status.className = "gk-status";
   app.appendChild(status);
 
-  var topbar = document.createElement("div");
-  topbar.className = "gk-b-top";
-  app.appendChild(topbar);
+  var top = document.createElement("div");
+  top.className = "gk-top";
+  app.appendChild(top);
 
-  var row1 = document.createElement("div");
-  row1.className = "gk-top-row1";
-  topbar.appendChild(row1);
+  var topGrid = document.createElement("div");
+  topGrid.className = "gk-top-grid";
+  top.appendChild(topGrid);
 
   var titleBox = document.createElement("div");
   titleBox.className = "gk-top-title";
-  row1.appendChild(titleBox);
+  topGrid.appendChild(titleBox);
 
   var titleB = document.createElement("b");
   titleB.textContent = "Disc Simulator booking";
   titleBox.appendChild(titleB);
 
   var titleS = document.createElement("span");
-  titleS.textContent = "Viser kun tider som er ledige. Du kan legge flere tider i handlekurven.";
+  titleS.textContent = "Pris vises per tid. Booking stenger 20 minutter før start. Kun ledige tider vises i oversikten.";
   titleBox.appendChild(titleS);
+
+  var meta = document.createElement("div");
+  meta.className = "gk-meta";
+  titleBox.appendChild(meta);
+
+  var chip1 = document.createElement("div");
+  chip1.className = "gk-chip-meta price";
+  chip1.textContent = "Pris per tid";
+  meta.appendChild(chip1);
+
+  var chip2 = document.createElement("div");
+  chip2.className = "gk-chip-meta warn";
+  chip2.textContent = "Booking stenger 20 min før start";
+  meta.appendChild(chip2);
+
+  var actions = document.createElement("div");
+  actions.className = "gk-top-actions";
+  topGrid.appendChild(actions);
 
   var cartBtn = document.createElement("a");
   cartBtn.className = "gk-cartbtn";
   cartBtn.href = CART_URL;
   cartBtn.textContent = "Gå til handlekurv";
-  row1.appendChild(cartBtn);
+  actions.appendChild(cartBtn);
 
   var cal = document.createElement("div");
   cal.className = "gk-cal";
@@ -115,10 +262,18 @@
   calHead.className = "gk-cal-head";
   cal.appendChild(calHead);
 
+  var headLeft = document.createElement("div");
+  calHead.appendChild(headLeft);
+
   var calTitle = document.createElement("div");
   calTitle.className = "gk-cal-title";
   calTitle.textContent = "Velg dato";
-  calHead.appendChild(calTitle);
+  headLeft.appendChild(calTitle);
+
+  var calSub = document.createElement("div");
+  calSub.className = "gk-cal-sub";
+  calSub.textContent = "Swipe på dagene for å se hele uka. Bruk knappene for å bytte uke.";
+  headLeft.appendChild(calSub);
 
   var calNav = document.createElement("div");
   calNav.className = "gk-cal-nav";
@@ -136,9 +291,13 @@
   nextBtn.textContent = "Neste uke";
   calNav.appendChild(nextBtn);
 
+  var chipsWrap = document.createElement("div");
+  chipsWrap.className = "gk-chips-wrap";
+  cal.appendChild(chipsWrap);
+
   var chips = document.createElement("div");
   chips.className = "gk-chips";
-  cal.appendChild(chips);
+  chipsWrap.appendChild(chips);
 
   var grid = document.createElement("div");
   grid.className = "gk-grid";
@@ -146,12 +305,13 @@
 
   var note = document.createElement("div");
   note.className = "gk-note";
-  note.textContent = "Tips: Swipe på dagene for å se hele uka. Bruk knappene for å bytte uke.";
+  note.textContent = "Tider mindre enn 20 minutter før start vises som stengt.";
   cal.appendChild(note);
 
-  // -----------------------------
-  // Cart helpers (POST /cart/add, ikke navigasjon)
-  // -----------------------------
+  /* ------------------------------------------------ */
+  /* CART */
+  /* ------------------------------------------------ */
+
   function postAddForm(bodyStr) {
     return fetch("/cart/add", {
       method: "POST",
@@ -176,9 +336,10 @@
       .catch(function () { cb(false); });
   }
 
-  // -----------------------------
-  // Variant parsing (Dag/Tid fra values – IDENTISK dart)
-  // -----------------------------
+  /* ------------------------------------------------ */
+  /* HELPERS */
+  /* ------------------------------------------------ */
+
   function parseDT(v) {
     var date = "", time = "";
     if (v && v.values) {
@@ -193,15 +354,85 @@
     return { date: date, time: time };
   }
 
-  function slotPassed(date, time) {
-    if (!date || !time) return false;
-    var start = String(time).split("-")[0] || "";
-    var d = new Date(date + "T" + start + ":00");
-    return d.getTime() < (new Date()).getTime();
+  function parsePrice(v, productObj) {
+    var candidates = [
+      v && v.price,
+      v && v.special_price,
+      v && v.sale_price,
+      v && v.final_price,
+      v && v.customer_price,
+      v && v.regular_price,
+      productObj && productObj.price
+    ];
+
+    for (var i = 0; i < candidates.length; i++) {
+      var raw = candidates[i];
+      if (raw === null || typeof raw === "undefined" || raw === "") continue;
+
+      if (typeof raw === "number") return raw;
+
+      var s = String(raw).replace(/\s/g, "").replace(",", ".");
+      var m = s.match(/-?\d+(\.\d+)?/);
+      if (m) {
+        var num = parseFloat(m[0]);
+        if (!isNaN(num)) return num;
+      }
+    }
+    return null;
   }
 
-  function buildIndex(variants, productId) {
+  function formatPriceNOK(num) {
+    if (num === null || typeof num === "undefined" || isNaN(num)) return "Pris kommer";
+    var rounded = Math.round(Number(num) * 100) / 100;
+    if (Math.abs(rounded - Math.round(rounded)) < 0.001) return Math.round(rounded) + " kr";
+    return rounded.toFixed(2).replace(".", ",") + " kr";
+  }
+
+  function parseStartDateTime(date, time) {
+    if (!date || !time) return null;
+    var start = String(time).split("-")[0] || "";
+    if (!start) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return new Date(date + "T" + start + ":00");
+    }
+
+    var dm = String(date).match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (dm) {
+      var dd = ("0" + parseInt(dm[1], 10)).slice(-2);
+      var mm = ("0" + parseInt(dm[2], 10)).slice(-2);
+      var yy = dm[3];
+      return new Date(yy + "-" + mm + "-" + dd + "T" + start + ":00");
+    }
+
+    return null;
+  }
+
+  function buildCutoffDate(date, time) {
+    var start = parseStartDateTime(date, time);
+    if (!start || isNaN(start.getTime())) return null;
+    var cutoff = new Date(start.getTime());
+    cutoff.setMinutes(cutoff.getMinutes() - CUTOFF_MINUTES_BEFORE_START);
+    return cutoff;
+  }
+
+  function slotState(date, time) {
+    var now = new Date();
+    var start = parseStartDateTime(date, time);
+    if (!start || isNaN(start.getTime())) return { passed: false, closed: false };
+
+    var cutoff = buildCutoffDate(date, time);
+    if (!cutoff || isNaN(cutoff.getTime())) return { passed: false, closed: false };
+
+    return {
+      passed: start.getTime() < now.getTime(),
+      closed: now.getTime() >= cutoff.getTime()
+    };
+  }
+
+  function buildIndex(variants, productId, productObj) {
     var map = {};
+
     for (var i = 0; i < variants.length; i++) {
       var v = variants[i];
       var qty = parseInt(v.qty || "0", 10);
@@ -209,16 +440,23 @@
 
       var dt = parseDT(v);
       if (!dt.date || !dt.time) continue;
-      if (slotPassed(dt.date, dt.time)) continue;
+
+      var st = slotState(dt.date, dt.time);
+      if (st.passed) continue;
 
       if (!map[dt.date]) map[dt.date] = {};
+
       map[dt.date][dt.time] = {
         product: String(productId),
         variant: String(v.id || ""),
         date: dt.date,
-        time: dt.time
+        time: dt.time,
+        qty: qty,
+        closed: !!st.closed,
+        price: parsePrice(v, productObj)
       };
     }
+
     return map;
   }
 
@@ -231,7 +469,7 @@
 
   function fmtChip(dateStr) {
     var d = new Date(dateStr + "T00:00:00");
-    var wd = ["Søn","Man","Tir","Ons","Tor","Fre","Lør"][d.getDay()];
+    var wd = ["Søn", "Man", "Tir", "Ons", "Tor", "Fre", "Lør"][d.getDay()];
     var dd = ("0" + d.getDate()).slice(-2);
     var mm = ("0" + (d.getMonth() + 1)).slice(-2);
     return { top: wd + " " + dd + "." + mm, sub: dateStr };
@@ -245,19 +483,30 @@
     return dateStr === (y + "-" + m + "-" + d);
   }
 
-  // -----------------------------
-  // Render
-  // -----------------------------
+  function idxOf(arr, v) {
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i] === v) return i;
+    }
+    return -1;
+  }
+
+  function hasAnyBookable(slotsForDate) {
+    if (!slotsForDate) return false;
+    for (var t in slotsForDate) {
+      if (slotsForDate.hasOwnProperty(t) && slotsForDate[t] && !slotsForDate[t].closed) return true;
+    }
+    return false;
+  }
+
+  /* ------------------------------------------------ */
+  /* DATA / STATE */
+  /* ------------------------------------------------ */
+
   var ALL_SLOTS = null;
   var ALL_DATES = [];
   var ACTIVE_DATE = "";
   var WEEK_START = 0;
   var WEEK_SIZE = 7;
-
-  function idxOf(arr, v) {
-    for (var i = 0; i < arr.length; i++) if (arr[i] === v) return i;
-    return -1;
-  }
 
   function clampWeekStart(i) {
     if (i < 0) i = 0;
@@ -265,55 +514,108 @@
     return i;
   }
 
+  /* ------------------------------------------------ */
+  /* RENDER */
+  /* ------------------------------------------------ */
+
   function setActiveDate(d) {
     ACTIVE_DATE = d;
+
     var kids = chips.children;
     for (var i = 0; i < kids.length; i++) {
       var el = kids[i];
       if (!el || !el.getAttribute) continue;
       el.setAttribute("data-active", el.getAttribute("data-date") === d ? "1" : "0");
     }
-    renderDay(d);
+
+    renderSlots(d);
   }
 
-  function renderDay(dateStr) {
+  function renderSlots(dateStr) {
     grid.innerHTML = "";
 
     if (!ALL_SLOTS || !ALL_SLOTS[dateStr]) {
       grid.innerHTML = "<div class='gk-empty'>Ingen ledige tider denne dagen.</div>";
-      calTitle.textContent = dateStr ? (dateStr + (isToday(dateStr) ? " (I dag)" : "")) : "Velg dato";
       return;
     }
 
-    calTitle.textContent = dateStr + (isToday(dateStr) ? " (I dag)" : "");
+    var slotsObj = ALL_SLOTS[dateStr];
+    var times = keys(slotsObj);
 
-    var times = keys(ALL_SLOTS[dateStr]);
-    for (var ti = 0; ti < times.length; ti++) {
-      var time = times[ti];
-      var slot = ALL_SLOTS[dateStr][time];
+    if (!times.length) {
+      grid.innerHTML = "<div class='gk-empty'>Ingen ledige tider denne dagen.</div>";
+      return;
+    }
+
+    for (var i = 0; i < times.length; i++) {
+      var slot = slotsObj[times[i]];
+      if (!slot) continue;
 
       var row = document.createElement("div");
-      row.className = "gk-row";
+      row.className = "gk-slot";
 
-      var t = document.createElement("div");
-      t.className = "gk-time";
-      t.textContent = time;
-      row.appendChild(t);
+      var left = document.createElement("div");
+      left.className = "gk-slot-left";
+      row.appendChild(left);
+
+      var timeEl = document.createElement("div");
+      timeEl.className = "gk-slot-time";
+      timeEl.textContent = slot.time;
+      left.appendChild(timeEl);
+
+      var metaEl = document.createElement("div");
+      metaEl.className = "gk-slot-meta";
+      left.appendChild(metaEl);
+
+      var priceChip = document.createElement("div");
+      priceChip.className = "gk-mini price";
+      priceChip.textContent = formatPriceNOK(slot.price);
+      metaEl.appendChild(priceChip);
+
+      var qtyChip = document.createElement("div");
+      qtyChip.className = "gk-mini";
+      qtyChip.textContent = "Ledig nå";
+      metaEl.appendChild(qtyChip);
+
+      if (slot.closed) {
+        var stopChip = document.createElement("div");
+        stopChip.className = "gk-mini warn";
+        stopChip.textContent = "Stengt – mindre enn 20 min igjen";
+        metaEl.appendChild(stopChip);
+      }
+
+      var right = document.createElement("div");
+      right.className = "gk-slot-right";
+      row.appendChild(right);
 
       var btn = document.createElement("button");
       btn.type = "button";
-      btn.className = "gk-lbtn";
-      btn.textContent = "Legg i handlekurv";
+      btn.className = "gk-bookbtn";
+      btn.textContent = "Book tid";
+      right.appendChild(btn);
+
+      if (slot.closed) {
+        btn.disabled = true;
+        btn.textContent = "Stengt";
+        btn.className = "gk-bookbtn gk-stopped";
+      }
 
       btn.onclick = (function (s, b) {
         return function () {
+          if (s.closed) return;
+
+          if (String(b.getAttribute("data-gk-locked") || "0") === "1") {
+            showGate();
+            return;
+          }
+
           b.disabled = true;
           b.textContent = "Legger til…";
 
           addVariantToCart(s.product, s.variant, function (ok) {
             if (ok) {
               status.innerHTML = "";
-              b.className = "gk-lbtn gk-ok";
+              b.className = "gk-bookbtn gk-ok";
               b.textContent = "Lagt i handlekurv ✓";
             } else {
               b.disabled = false;
@@ -323,9 +625,10 @@
         };
       })(slot, btn);
 
-      row.appendChild(btn);
       grid.appendChild(row);
     }
+
+    syncRulesButtonState();
   }
 
   function renderWeek() {
@@ -360,7 +663,10 @@
         sub.textContent = isToday(d) ? "I dag" : f.sub;
         chip.appendChild(sub);
 
-        chip.onclick = function () { setActiveDate(d); };
+        chip.onclick = function () {
+          setActiveDate(d);
+        };
+
         chips.appendChild(chip);
       })();
     }
@@ -373,54 +679,74 @@
     WEEK_START = clampWeekStart(WEEK_START - WEEK_SIZE);
     renderWeek();
   };
+
   nextBtn.onclick = function () {
     WEEK_START = clampWeekStart(WEEK_START + WEEK_SIZE);
     renderWeek();
   };
 
-  // -----------------------------
-  // Load
-  // -----------------------------
+  /* ------------------------------------------------ */
+  /* LOAD */
+  /* ------------------------------------------------ */
+
   status.innerHTML = "Laster ledige tider…";
 
-  fetch(API_DISC).then(function (r) { return r.json(); }).then(function (res) {
-    var p = res && res.product ? res.product : null;
-    var vars = p && p.variants ? p.variants : [];
+  fetch(API_DISC)
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      var p = res && res.product ? res.product : null;
+      var vars = p && p.variants ? p.variants : [];
 
-    ALL_SLOTS = buildIndex(vars, PRODUCT_DISC);
-    ALL_DATES = keys(ALL_SLOTS);
+      ALL_SLOTS = buildIndex(vars, PRODUCT_DISC, p);
 
-    console.log("[DISC] dates from variants:", ALL_DATES);
+      var rawDates = keys(ALL_SLOTS);
+      var filteredDates = [];
 
-    status.innerHTML = "";
+      for (var i = 0; i < rawDates.length; i++) {
+        var d = rawDates[i];
+        if (hasAnyBookable(ALL_SLOTS[d]) || keys(ALL_SLOTS[d]).length) {
+          filteredDates.push(d);
+        }
+      }
 
-    if (!ALL_DATES.length) {
-      grid.innerHTML = "<div class='gk-empty'>Ingen ledige tider akkurat nå.</div>";
-      return;
-    }
+      ALL_DATES = filteredDates;
 
-    var todayPick = "";
-    for (var j = 0; j < ALL_DATES.length; j++) {
-      if (isToday(ALL_DATES[j])) { todayPick = ALL_DATES[j]; break; }
-    }
-    ACTIVE_DATE = todayPick || ALL_DATES[0];
+      console.log("[DISC] dates from variants:", ALL_DATES);
 
-    var ai = idxOf(ALL_DATES, ACTIVE_DATE);
-    if (ai < 0) ai = 0;
-    WEEK_START = clampWeekStart(ai - (ai % WEEK_SIZE));
+      status.innerHTML = "";
 
-    renderWeek();
+      if (!ALL_DATES.length) {
+        grid.innerHTML = "<div class='gk-empty'>Ingen ledige tider akkurat nå.</div>";
+        return;
+      }
 
-  }).catch(function (e) {
-    console.log("[DISC] load error:", e);
-    status.innerHTML = "Kunne ikke laste tider (se console).";
-    grid.innerHTML = "<div class='gk-empty'>Kunne ikke laste tider.</div>";
-  });
-// -----------------------------
-// GK Rules Gate (GolfKongen v1 - once per day)
-// -----------------------------
-(function setupRulesGateGK() {
-  var KEY = "gk_booking_rules_ok_daily_v1";
+      var todayPick = "";
+      for (var j = 0; j < ALL_DATES.length; j++) {
+        if (isToday(ALL_DATES[j])) {
+          todayPick = ALL_DATES[j];
+          break;
+        }
+      }
+
+      ACTIVE_DATE = todayPick || ALL_DATES[0];
+
+      var ai = idxOf(ALL_DATES, ACTIVE_DATE);
+      if (ai < 0) ai = 0;
+      WEEK_START = clampWeekStart(ai - (ai % WEEK_SIZE));
+
+      renderWeek();
+    })
+    .catch(function (e) {
+      console.log("[DISC] load error:", e);
+      status.innerHTML = "Kunne ikke laste tider.";
+      grid.innerHTML = "<div class='gk-empty'>Kunne ikke laste tider.</div>";
+    });
+
+  /* ------------------------------------------------ */
+  /* GK RULES GATE */
+  /* ------------------------------------------------ */
+
+  var RULES_KEY = "gk_booking_rules_ok_daily_v1";
   var TERMS_URL = "https://golfkongen.no/sider/terms-and-conditions";
 
   function todayKey() {
@@ -433,28 +759,45 @@
 
   function readOK() {
     try {
-      return localStorage.getItem(KEY) === todayKey();
-    } catch (e) { return false; }
+      return localStorage.getItem(RULES_KEY) === todayKey();
+    } catch (e) {
+      return false;
+    }
   }
 
   function writeOK() {
-    try { localStorage.setItem(KEY, todayKey()); } catch (e) {}
+    try {
+      localStorage.setItem(RULES_KEY, todayKey());
+    } catch (e) {}
   }
 
   function setButtonsEnabled(enabled) {
     try {
-      var btns = document.querySelectorAll(".gk-lbtn");
+      var btns = document.querySelectorAll(".gk-bookbtn");
       for (var i = 0; i < btns.length; i++) {
-        var t = String(btns[i].textContent || "");
-        if (t.indexOf("Lagt i handlekurv") !== -1) continue;
-        btns[i].disabled = !enabled;
-        btns[i].setAttribute("data-gk-locked", enabled ? "0" : "1");
+        var b = btns[i];
+        var txt = String(b.textContent || "");
+        if (txt.indexOf("Lagt i handlekurv") !== -1) continue;
+        if (txt === "Stengt") continue;
+
+        b.disabled = !enabled;
+        b.setAttribute("data-gk-locked", enabled ? "0" : "1");
+
+        if (!enabled) {
+          b.classList.add("gk-locked");
+        } else {
+          b.classList.remove("gk-locked");
+        }
       }
     } catch (e2) {}
   }
 
-  function injectCSS() {
-    if (document.getElementById("gk-rules-gate-css-gk1")) return;
+  function syncRulesButtonState() {
+    setButtonsEnabled(readOK());
+  }
+
+  function injectRulesCSS() {
+    if (document.getElementById("gk-rules-gate-css-gk2")) return;
 
     var css = ""
       + ".gk-rules-overlay{position:fixed;inset:0;background:radial-gradient(1200px 600px at 50% 20%, rgba(43,209,139,.12), rgba(0,0,0,0)), rgba(0,0,0,.66);z-index:99999;display:flex;align-items:flex-end;justify-content:center;padding:12px}"
@@ -486,20 +829,19 @@
       + ".gk-x:hover{background:rgba(255,255,255,.06)}";
 
     var st = document.createElement("style");
-    st.id = "gk-rules-gate-css-gk1";
+    st.id = "gk-rules-gate-css-gk2";
     st.appendChild(document.createTextNode(css));
     document.head.appendChild(st);
   }
 
   function rulesHTML() {
-    // Kort + tydelig, “GK språk”, ingen SuperSaaS
     return ""
       + "<div class='gk-rules-grid'>"
       + "  <div class='gk-rules-card'>"
       + "    <h3>Booking, betaling og avbestilling</h3>"
       + "    <ul>"
       + "      <li>Booking skjer via GolfKongen.no og er personlig.</li>"
-      + "      <li>Avbestilling senest <b>30 min</b> før start. Senere avbestilling/no-show gir normalt ingen refusjon.</li>"
+      + "      <li>Avbestilling senest <b>20 min</b> før start. Senere avbestilling/no-show gir normalt ingen refusjon.</li>"
       + "      <li>Booket tid skal overholdes. Overtid kan faktureres (avrundet til påbegynte timer).</li>"
       + "    </ul>"
       + "  </div>"
@@ -530,7 +872,10 @@
   }
 
   function showGate() {
-    injectCSS();
+    injectRulesCSS();
+
+    var existing = document.querySelector(".gk-rules-overlay");
+    if (existing) return;
 
     var overlay = document.createElement("div");
     overlay.className = "gk-rules-overlay";
@@ -594,9 +939,9 @@
     ct.innerHTML = "Jeg har lest og aksepterer vilkårene.";
     checkWrap.appendChild(ct);
 
-    var actions = document.createElement("div");
-    actions.className = "gk-rules-actions";
-    footer.appendChild(actions);
+    var actions2 = document.createElement("div");
+    actions2.className = "gk-rules-actions";
+    footer.appendChild(actions2);
 
     var more = document.createElement("a");
     more.className = "gk-rules-btn link";
@@ -604,14 +949,14 @@
     more.target = "_blank";
     more.rel = "noopener";
     more.textContent = "Les mer";
-    actions.appendChild(more);
+    actions2.appendChild(more);
 
     var ok = document.createElement("button");
     ok.type = "button";
     ok.className = "gk-rules-btn ok";
     ok.textContent = "Jeg godtar";
     ok.disabled = true;
-    actions.appendChild(ok);
+    actions2.appendChild(ok);
 
     cb.onchange = function () {
       ok.disabled = !cb.checked;
@@ -630,7 +975,6 @@
 
     x.onclick = closeOnly;
 
-    // Klikk utenfor = lukk (men fortsatt låst)
     overlay.onclick = function (e) {
       if (e && e.target === overlay) closeOnly();
     };
@@ -640,22 +984,20 @@
     document.body.appendChild(overlay);
   }
 
-  // Init
   if (readOK()) {
     setButtonsEnabled(true);
   } else {
     setButtonsEnabled(false);
 
-    // Hold knapper låst til de finnes
     var tries = 0;
     var t = setInterval(function () {
       setButtonsEnabled(false);
       tries++;
-      if (document.querySelectorAll(".gk-lbtn").length > 0 || tries > 40) clearInterval(t);
+      if (document.querySelectorAll(".gk-bookbtn").length || tries > 60) {
+        clearInterval(t);
+        showGate();
+      }
     }, 250);
-
-    // Vis popup
-    setTimeout(showGate, 250);
   }
-})();
+
 })();
