@@ -17,6 +17,47 @@
 
   var CUTOFF_MINUTES_BEFORE_START = 20;
 
+
+  /* ------------------------------------------------ */
+  /* BOOKING STORAGE */
+  /* ------------------------------------------------ */
+
+  function gkStoreBookingDetails(payload) {
+    try {
+      var KEY = "gk_last_booking_payload_v1";
+      var TARGET_KEY = "gk_success_target";
+
+      var current = null;
+      try {
+        current = JSON.parse(localStorage.getItem(KEY) || "null");
+      } catch (e) {
+        current = null;
+      }
+
+      if (!current || typeof current !== "object") {
+        current = {
+          createdAt: new Date().toISOString(),
+          source: payload.source || "booking",
+          title: payload.title || "Booking",
+          items: [],
+          extras: {}
+        };
+      }
+
+      if (!current.items) current.items = [];
+      if (payload.item) current.items.push(payload.item);
+
+      if (payload.source) current.source = payload.source;
+      if (payload.title) current.title = payload.title;
+      if (payload.extras) current.extras = payload.extras;
+
+      localStorage.setItem(KEY, JSON.stringify(current));
+      localStorage.setItem(TARGET_KEY, "booking");
+    } catch (e) {
+      console.log("[GK BOOKING STORE] error", e);
+    }
+  }
+
   /* ------------------------------------------------ */
   /* PATH / ROOT */
   /* ------------------------------------------------ */
@@ -26,6 +67,10 @@
     path = path.slice(0, -1);
   }
   if (path !== PAGE_PATH) return;
+
+  try {
+    localStorage.removeItem("gk_last_booking_payload_v1");
+  } catch (e) {}
 
   var app = document.getElementById(ROOT_ID);
   if (!app) return;
@@ -614,6 +659,21 @@
 
           addVariantToCart(s.product, s.variant, function (ok) {
             if (ok) {
+              gkStoreBookingDetails({
+                source: "disc",
+                title: "Disc simulator booking",
+                item: {
+                  type: "disc",
+                  label: "Disc simulator",
+                  date: s.date || "",
+                  time: s.time || "",
+                  productId: String(s.product || ""),
+                  variantId: String(s.variant || ""),
+                  price: (s.price !== null && typeof s.price !== "undefined") ? String(s.price) : ""
+                },
+                extras: {}
+              });
+
               status.innerHTML = "";
               b.className = "gk-bookbtn gk-ok";
               b.textContent = "Lagt i handlekurv ✓";
