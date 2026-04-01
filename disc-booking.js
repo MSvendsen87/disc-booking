@@ -1,5 +1,5 @@
 (function () {
-  console.log("[DISC BOOKING v4] LOADED");
+  console.log("[DISC BOOKING v5] LOADED");
 
   /* ------------------------------------------------ */
   /* KONFIG */
@@ -16,7 +16,6 @@
   var ROOT_ID = "disc-booking-app";
 
   var CUTOFF_MINUTES_BEFORE_START = 20;
-
 
   /* ------------------------------------------------ */
   /* BOOKING STORAGE */
@@ -81,7 +80,7 @@
   /* ------------------------------------------------ */
 
   function injectCSS() {
-    if (document.getElementById("gk-disc-css-v4")) return;
+    if (document.getElementById("gk-disc-css-v5")) return;
 
     var css = ""
       + ":root{"
@@ -95,7 +94,10 @@
       + "--gk-ac:#2bd18b;"
       + "--gk-ac2:#7dffb8;"
       + "--gk-gold:#f0c14b;"
-      + "--gk-red:#ff7676;"
+      + "--gk-red:#ff6b6b;"
+      + "--gk-red-2:#ff9a9a;"
+      + "--gk-stop:#ffb86b;"
+      + "--gk-stop-2:#ffd3a1;"
       + "}"
 
       + "#disc-booking-app{max-width:1040px;margin:0 auto;padding:12px;color:var(--gk-text)}"
@@ -132,8 +134,8 @@
       + "color:#ffe29b"
       + "}"
       + ".gk-chip-meta.warn{"
-      + "border-color:rgba(255,118,118,.28);"
-      + "background:linear-gradient(135deg, rgba(255,118,118,.14), rgba(255,118,118,.06));"
+      + "border-color:rgba(255,107,107,.28);"
+      + "background:linear-gradient(135deg, rgba(255,107,107,.14), rgba(255,107,107,.06));"
       + "color:#ffc1c1"
       + "}"
 
@@ -206,10 +208,20 @@
       + "background:linear-gradient(135deg, rgba(240,193,75,.16), rgba(240,193,75,.06));"
       + "color:#ffe29b"
       + "}"
+      + ".gk-mini.ok{"
+      + "border-color:rgba(43,209,139,.30);"
+      + "background:linear-gradient(135deg, rgba(43,209,139,.16), rgba(125,255,184,.06));"
+      + "color:#bff5d8"
+      + "}"
       + ".gk-mini.warn{"
-      + "border-color:rgba(255,118,118,.30);"
-      + "background:linear-gradient(135deg, rgba(255,118,118,.12), rgba(255,118,118,.05));"
-      + "color:#ffc1c1"
+      + "border-color:rgba(255,107,107,.34);"
+      + "background:linear-gradient(135deg, rgba(255,107,107,.18), rgba(255,107,107,.06));"
+      + "color:#ffd1d1"
+      + "}"
+      + ".gk-mini.stop{"
+      + "border-color:rgba(255,184,107,.32);"
+      + "background:linear-gradient(135deg, rgba(255,184,107,.16), rgba(255,184,107,.05));"
+      + "color:#ffe0bc"
       + "}"
 
       + ".gk-slot-right{display:flex;align-items:center;justify-content:stretch}"
@@ -220,10 +232,11 @@
       + "color:var(--gk-text);font-weight:900;cursor:pointer"
       + "}"
       + ".gk-bookbtn:active{transform:scale(.99)}"
-      + ".gk-bookbtn[disabled]{opacity:.78;cursor:not-allowed;transform:none}"
+      + ".gk-bookbtn[disabled]{opacity:.88;cursor:not-allowed;transform:none}"
       + ".gk-bookbtn.gk-ok{border-color:rgba(43,209,139,.75)}"
       + ".gk-bookbtn.gk-locked{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05)}"
-      + ".gk-bookbtn.gk-stopped{border-color:rgba(255,118,118,.28);background:rgba(255,118,118,.08)}"
+      + ".gk-bookbtn.gk-stopped{border-color:rgba(255,184,107,.36);background:linear-gradient(135deg, rgba(255,184,107,.14), rgba(255,184,107,.05));color:#ffe0bc}"
+      + ".gk-bookbtn.gk-booked{border-color:rgba(255,107,107,.45);background:linear-gradient(135deg, rgba(255,107,107,.20), rgba(255,107,107,.07));color:#ffd3d3}"
 
       + ".gk-note{padding:0 14px 14px 14px;color:var(--gk-muted);font-size:12px;line-height:1.45}"
       + ".gk-empty{padding:18px 14px;color:var(--gk-muted)}"
@@ -239,8 +252,9 @@
       + ".gk-slot-right{flex:0 0 190px;justify-content:flex-end}"
       + ".gk-bookbtn{width:auto;min-width:170px}"
       + "}";
+
     var style = document.createElement("style");
-    style.id = "gk-disc-css-v4";
+    style.id = "gk-disc-css-v5";
     style.type = "text/css";
     style.appendChild(document.createTextNode(css));
     document.head.appendChild(style);
@@ -272,7 +286,7 @@
   titleBox.appendChild(titleB);
 
   var titleS = document.createElement("span");
-  titleS.textContent = "Pris vises per tid. Booking stenger 20 minutter før start. Kun ledige tider vises i oversikten.";
+  titleS.textContent = "Pris vises per tid. Booking stenger 20 minutter før start. Bookede tider vises i rødt.";
   titleBox.appendChild(titleS);
 
   var meta = document.createElement("div");
@@ -350,7 +364,7 @@
 
   var note = document.createElement("div");
   note.className = "gk-note";
-  note.textContent = "Tider mindre enn 20 minutter før start vises som stengt.";
+  note.textContent = "Tider mindre enn 20 minutter før start vises som stengt. Fullbookede tider vises som booket i rødt.";
   cal.appendChild(note);
 
   /* ------------------------------------------------ */
@@ -481,7 +495,7 @@
     for (var i = 0; i < variants.length; i++) {
       var v = variants[i];
       var qty = parseInt(v.qty || "0", 10);
-      if (isNaN(qty) || qty <= 0) continue;
+      if (isNaN(qty)) qty = 0;
 
       var dt = parseDT(v);
       if (!dt.date || !dt.time) continue;
@@ -497,6 +511,7 @@
         date: dt.date,
         time: dt.time,
         qty: qty,
+        soldOut: qty <= 0,
         closed: !!st.closed,
         price: parsePrice(v, productObj)
       };
@@ -535,12 +550,10 @@
     return -1;
   }
 
-  function hasAnyBookable(slotsForDate) {
+  function hasAnyVisible(slotsForDate) {
     if (!slotsForDate) return false;
-    for (var t in slotsForDate) {
-      if (slotsForDate.hasOwnProperty(t) && slotsForDate[t] && !slotsForDate[t].closed) return true;
-    }
-    return false;
+    var ks = keys(slotsForDate);
+    return ks.length > 0;
   }
 
   /* ------------------------------------------------ */
@@ -580,7 +593,7 @@
     grid.innerHTML = "";
 
     if (!ALL_SLOTS || !ALL_SLOTS[dateStr]) {
-      grid.innerHTML = "<div class='gk-empty'>Ingen ledige tider denne dagen.</div>";
+      grid.innerHTML = "<div class='gk-empty'>Ingen tider denne dagen.</div>";
       return;
     }
 
@@ -588,7 +601,7 @@
     var times = keys(slotsObj);
 
     if (!times.length) {
-      grid.innerHTML = "<div class='gk-empty'>Ingen ledige tider denne dagen.</div>";
+      grid.innerHTML = "<div class='gk-empty'>Ingen tider denne dagen.</div>";
       return;
     }
 
@@ -617,16 +630,21 @@
       priceChip.textContent = formatPriceNOK(slot.price);
       metaEl.appendChild(priceChip);
 
-      var qtyChip = document.createElement("div");
-      qtyChip.className = "gk-mini";
-      qtyChip.textContent = "Ledig nå";
-      metaEl.appendChild(qtyChip);
-
-      if (slot.closed) {
+      if (slot.soldOut) {
+        var soldChip = document.createElement("div");
+        soldChip.className = "gk-mini warn";
+        soldChip.textContent = "Booket";
+        metaEl.appendChild(soldChip);
+      } else if (slot.closed) {
         var stopChip = document.createElement("div");
-        stopChip.className = "gk-mini warn";
+        stopChip.className = "gk-mini stop";
         stopChip.textContent = "Stengt – mindre enn 20 min igjen";
         metaEl.appendChild(stopChip);
+      } else {
+        var qtyChip = document.createElement("div");
+        qtyChip.className = "gk-mini ok";
+        qtyChip.textContent = "Ledig nå";
+        metaEl.appendChild(qtyChip);
       }
 
       var right = document.createElement("div");
@@ -639,7 +657,11 @@
       btn.textContent = "Book tid";
       right.appendChild(btn);
 
-      if (slot.closed) {
+      if (slot.soldOut) {
+        btn.disabled = true;
+        btn.textContent = "Booket";
+        btn.className = "gk-bookbtn gk-booked";
+      } else if (slot.closed) {
         btn.disabled = true;
         btn.textContent = "Stengt";
         btn.className = "gk-bookbtn gk-stopped";
@@ -647,7 +669,7 @@
 
       btn.onclick = (function (s, b) {
         return function () {
-          if (s.closed) return;
+          if (s.closed || s.soldOut) return;
 
           if (String(b.getAttribute("data-gk-locked") || "0") === "1") {
             showGate();
@@ -698,7 +720,7 @@
     var slice = ALL_DATES.slice(WEEK_START, WEEK_START + WEEK_SIZE);
 
     if (!slice.length) {
-      grid.innerHTML = "<div class='gk-empty'>Ingen ledige tider akkurat nå.</div>";
+      grid.innerHTML = "<div class='gk-empty'>Ingen tider akkurat nå.</div>";
       return;
     }
 
@@ -749,7 +771,7 @@
   /* LOAD */
   /* ------------------------------------------------ */
 
-  status.innerHTML = "Laster ledige tider…";
+  status.innerHTML = "Laster tider…";
 
   fetch(API_DISC)
     .then(function (r) { return r.json(); })
@@ -764,7 +786,7 @@
 
       for (var i = 0; i < rawDates.length; i++) {
         var d = rawDates[i];
-        if (hasAnyBookable(ALL_SLOTS[d]) || keys(ALL_SLOTS[d]).length) {
+        if (hasAnyVisible(ALL_SLOTS[d])) {
           filteredDates.push(d);
         }
       }
@@ -776,7 +798,7 @@
       status.innerHTML = "";
 
       if (!ALL_DATES.length) {
-        grid.innerHTML = "<div class='gk-empty'>Ingen ledige tider akkurat nå.</div>";
+        grid.innerHTML = "<div class='gk-empty'>Ingen tider akkurat nå.</div>";
         return;
       }
 
@@ -839,6 +861,7 @@
         var txt = String(b.textContent || "");
         if (txt.indexOf("Lagt i handlekurv") !== -1) continue;
         if (txt === "Stengt") continue;
+        if (txt === "Booket") continue;
 
         b.disabled = !enabled;
         b.setAttribute("data-gk-locked", enabled ? "0" : "1");
