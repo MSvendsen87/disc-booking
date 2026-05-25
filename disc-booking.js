@@ -1,5 +1,5 @@
 (function () {
-  console.log("[DISC BOOKING v8 REDUSERT PRIS + LOCKS] LOADED");
+  console.log("[DISC BOOKING v9 REDUSERT PRIS TYDELIG + LOCKS] LOADED");
 
   /*
     Trygg wrapper:
