@@ -1,5 +1,5 @@
 (function () {
-  console.log("[DISC BOOKING v6 VENUE LOCK WRAPPER] LOADED");
+  console.log("[DISC BOOKING v7 CLOSED TIMES + VENUE LOCK] LOADED");
 
   /*
     Trygg wrapper:
@@ -12,6 +12,8 @@
   var ROOT_ID = "disc-booking-app";
   var ORIGINAL_DISC_SRC = "https://cdn.jsdelivr.net/gh/MSvendsen87/disc-booking@a743fd1/disc-booking.js";
   var VENUE_API = "https://cold-shadow-36dc.post-cd6.workers.dev/products/1349";
+  var CLOSED_TIMES_API = "https://gk-booking-admin.post-cd6.workers.dev/booking/closed-times";
+  var DISC_PRODUCT_ID = "1320";
 
   var path = String(location.pathname || "");
   while (path.length && path.charAt(path.length - 1) === "/" && path !== "/") {
@@ -21,7 +23,9 @@
   if (path !== PAGE_PATH) return;
 
   var venueSlotsByDate = {};
+  var closedTimesByDate = {};
   var venueLoaded = false;
+  var closedTimesLoaded = false;
   var overlayStarted = false;
 
   function pad2(n) {
@@ -106,21 +110,58 @@
     return null;
   }
 
-  function addLockChip(metaEl) {
+
+  function ruleAppliesToDisc(rule) {
+    var products = rule && rule.products;
+
+    if (products === "all") return true;
+    if (products === DISC_PRODUCT_ID || products === Number(DISC_PRODUCT_ID)) return true;
+
+    if (Array.isArray(products)) {
+      return products.map(String).indexOf(DISC_PRODUCT_ID) !== -1 || products.indexOf("all") !== -1;
+    }
+
+    return false;
+  }
+
+  function getClosedTimeLock(date, discTime) {
+    if (!date || !discTime) return null;
+
+    var list = closedTimesByDate[date] || [];
+    for (var i = 0; i < list.length; i++) {
+      var r = list[i];
+      if (!r || !ruleAppliesToDisc(r)) continue;
+
+      var closedTime = String(r.from || "") + "-" + String(r.to || "");
+      if (timesOverlap(closedTime, discTime)) {
+        return {
+          date: date,
+          time: closedTime,
+          reason: r.reason || r.label || "Stengt"
+        };
+      }
+    }
+
+    return null;
+  }
+
+
+  function addLockChip(metaEl, key, text) {
     if (!metaEl) return;
 
-    var old = metaEl.querySelector("[data-gk-venue-lock-chip='1']");
+    var attr = "data-gk-" + key + "-chip";
+    var old = metaEl.querySelector("[" + attr + "='1']");
     if (old) return;
 
     var chip = document.createElement("div");
     chip.className = "gk-mini warn";
-    chip.setAttribute("data-gk-venue-lock-chip", "1");
-    chip.textContent = "Hele lokalet booket";
+    chip.setAttribute(attr, "1");
+    chip.textContent = text;
     metaEl.appendChild(chip);
   }
 
-  function applyVenueLocks() {
-    if (!venueLoaded) return;
+  function applyAllLocks() {
+    if (!venueLoaded || !closedTimesLoaded) return;
 
     var app = document.getElementById(ROOT_ID);
     if (!app) return;
@@ -139,18 +180,34 @@
       if (!timeEl || !btn) continue;
 
       var discTime = normalizeTime(timeEl.textContent || "");
-      var lock = getVenueLock(date, discTime);
 
-      if (!lock) continue;
+      var closedLock = getClosedTimeLock(date, discTime);
+      if (closedLock) {
+        row.setAttribute("data-gk-closed-time-locked", "1");
+        addLockChip(metaEl, "closed-time-lock", "Stengt");
 
-      row.setAttribute("data-gk-venue-locked", "1");
-      addLockChip(metaEl);
+        btn.disabled = true;
+        btn.className = "gk-bookbtn gk-booked";
+        btn.textContent = closedLock.reason || "Stengt";
+        btn.setAttribute("data-gk-closed-time-lock", "1");
+        continue;
+      }
 
-      btn.disabled = true;
-      btn.className = "gk-bookbtn gk-booked";
-      btn.textContent = "Hele lokalet booket";
-      btn.setAttribute("data-gk-venue-lock", "1");
+      var venueLock = getVenueLock(date, discTime);
+      if (venueLock) {
+        row.setAttribute("data-gk-venue-locked", "1");
+        addLockChip(metaEl, "venue-lock", "Hele lokalet booket");
+
+        btn.disabled = true;
+        btn.className = "gk-bookbtn gk-booked";
+        btn.textContent = "Hele lokalet booket";
+        btn.setAttribute("data-gk-venue-lock", "1");
+      }
     }
+  }
+
+  function applyVenueLocks() {
+    applyAllLocks();
   }
 
   function loadVenueData() {
@@ -183,19 +240,49 @@
 
         venueLoaded = true;
         console.log("[DISC VENUE LOCK] Venue-data lastet", venueSlotsByDate);
-        applyVenueLocks();
+        applyAllLocks();
       })
       .catch(function (e) {
         venueLoaded = true;
         console.log("[DISC VENUE LOCK] Kunne ikke laste venue-data:", e);
+        applyAllLocks();
       });
   }
+
+
+  function loadClosedTimesData() {
+    return fetch(CLOSED_TIMES_API, { credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var list = res && Array.isArray(res.closedTimes) ? res.closedTimes : [];
+        closedTimesByDate = {};
+
+        for (var i = 0; i < list.length; i++) {
+          var rule = list[i] || {};
+          if (!rule.date || !rule.from || !rule.to) continue;
+
+          if (!closedTimesByDate[rule.date]) closedTimesByDate[rule.date] = [];
+          closedTimesByDate[rule.date].push(rule);
+        }
+
+        closedTimesLoaded = true;
+        console.log("[DISC CLOSED TIMES] Stengte tider lastet", closedTimesByDate);
+        applyAllLocks();
+      })
+      .catch(function (e) {
+        closedTimesLoaded = true;
+        console.log("[DISC CLOSED TIMES] Kunne ikke laste stengte tider:", e);
+        applyAllLocks();
+      });
+  }
+
 
   function startOverlay() {
     if (overlayStarted) return;
     overlayStarted = true;
 
     loadVenueData();
+    loadClosedTimesData();
 
     var app = document.getElementById(ROOT_ID);
     if (!app) return;
@@ -203,7 +290,7 @@
     var timer = null;
     var observer = new MutationObserver(function () {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(applyVenueLocks, 80);
+      timer = setTimeout(applyAllLocks, 80);
     });
 
     observer.observe(app, {
@@ -213,7 +300,7 @@
       attributeFilter: ["data-active"]
     });
 
-    setInterval(applyVenueLocks, 1000);
+    setInterval(applyAllLocks, 1000);
   }
 
   function loadOriginalDiscBooking() {
@@ -229,7 +316,7 @@
     s.setAttribute("data-gk-original-disc-booking", "1");
 
     s.onload = function () {
-      console.log("[DISC BOOKING v6] Original disc-booking a743fd1 lastet");
+      console.log("[DISC BOOKING v7] Original disc-booking a743fd1 lastet");
       setTimeout(startOverlay, 150);
     };
 
