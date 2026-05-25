@@ -1,5 +1,5 @@
 (function () {
-  console.log("[DISC BOOKING v7 CLOSED TIMES + VENUE LOCK] LOADED");
+  console.log("[DISC BOOKING v8 REDUSERT PRIS + LOCKS] LOADED");
 
   /*
     Trygg wrapper:
@@ -14,6 +14,8 @@
   var VENUE_API = "https://cold-shadow-36dc.post-cd6.workers.dev/products/1349";
   var CLOSED_TIMES_API = "https://gk-booking-admin.post-cd6.workers.dev/booking/closed-times";
   var DISC_PRODUCT_ID = "1320";
+  var DISC_API = "https://cold-shadow-36dc.post-cd6.workers.dev/products/1320";
+  var DISC_STANDARD_PRICE = 150;
 
   var path = String(location.pathname || "");
   while (path.length && path.charAt(path.length - 1) === "/" && path !== "/") {
@@ -24,7 +26,9 @@
 
   var venueSlotsByDate = {};
   var closedTimesByDate = {};
+  var discPricesByDateTime = {};
   var venueLoaded = false;
+  var discPricesLoaded = false;
   var closedTimesLoaded = false;
   var overlayStarted = false;
 
@@ -111,6 +115,99 @@
   }
 
 
+
+  function parsePriceValue(raw) {
+    if (raw === null || typeof raw === "undefined" || raw === "") return null;
+    if (typeof raw === "number") return raw;
+    var s = String(raw).replace(/\s/g, "").replace(",", ".");
+    var m = s.match(/-?\d+(\.\d+)?/);
+    if (!m) return null;
+    var n = Number(m[0]);
+    return isNaN(n) ? null : n;
+  }
+
+  function formatPriceNok(n) {
+    n = Number(n);
+    if (isNaN(n)) return "";
+    if (Math.abs(n - Math.round(n)) < 0.001) return Math.round(n) + " kr";
+    return n.toFixed(2).replace(".", ",") + " kr";
+  }
+
+  function parseDiscVariantDateTime(v) {
+    var date = "";
+    var time = "";
+
+    var vals = Array.isArray(v && v.values) ? v.values : [];
+    for (var i = 0; i < vals.length; i++) {
+      var val = String((vals[i] && (vals[i].val || vals[i].value || vals[i].name)) || "");
+      if (!date) {
+        var dm = val.match(/(\d{4}-\d{2}-\d{2})|(\d{1,2})\.(\d{1,2})(?:\.(\d{4}))?/);
+        if (dm) {
+          if (dm[1]) {
+            date = dm[1];
+          } else {
+            var y = dm[4] || String((new Date()).getFullYear());
+            date = y + "-" + ("0" + dm[3]).slice(-2) + "-" + ("0" + dm[2]).slice(-2);
+          }
+        }
+      }
+
+      if (!time) {
+        var tm = val.match(/(\d{1,2})[:.]?(\d{2})\s*[-–]\s*(\d{1,2})[:.]?(\d{2})/);
+        if (tm) {
+          time = ("0" + tm[1]).slice(-2) + ":" + tm[2] + "-" + ("0" + tm[3]).slice(-2) + ":" + tm[4];
+        }
+      }
+    }
+
+    var sku = String(v && v.sku || "");
+    var sm = sku.match(/(\d{4}-\d{2}-\d{2})[-_]?(\d{2})(\d{2})[-_]?(\d{2})(\d{2})/);
+    if (sm) {
+      if (!date) date = sm[1];
+      if (!time) time = sm[2] + ":" + sm[3] + "-" + sm[4] + ":" + sm[5];
+    }
+
+    return { date: date, time: time };
+  }
+
+  function buildDiscPriceIndex(product) {
+    var out = {};
+    var variants = product && Array.isArray(product.variants) ? product.variants : [];
+
+    for (var i = 0; i < variants.length; i++) {
+      var v = variants[i] || {};
+      var dt = parseDiscVariantDateTime(v);
+      if (!dt.date || !dt.time) continue;
+
+      var price = parsePriceValue(v.price);
+      if (price === null) price = parsePriceValue(product && product.price);
+      if (price === null) continue;
+
+      out[dt.date + "|" + dt.time] = price;
+    }
+
+    return out;
+  }
+
+  function getDiscPrice(date, time) {
+    return discPricesByDateTime[String(date || "") + "|" + String(time || "")];
+  }
+
+  function addReducedPriceChip(metaEl, priceValue) {
+    if (!metaEl) return;
+
+    var old = metaEl.querySelector("[data-gk-reduced-price-chip='1']");
+    if (old) return;
+
+    var chip = document.createElement("div");
+    chip.className = "gk-mini";
+    chip.setAttribute("data-gk-reduced-price-chip", "1");
+    chip.textContent = "Redusert pris " + formatPriceNok(priceValue);
+    chip.title = "Lavere pris enn standardpris";
+    metaEl.appendChild(chip);
+  }
+
+
   function ruleAppliesToDisc(rule) {
     var products = rule && rule.products;
 
@@ -161,7 +258,7 @@
   }
 
   function applyAllLocks() {
-    if (!venueLoaded || !closedTimesLoaded) return;
+    if (!venueLoaded || !closedTimesLoaded || !discPricesLoaded) return;
 
     var app = document.getElementById(ROOT_ID);
     if (!app) return;
@@ -180,6 +277,11 @@
       if (!timeEl || !btn) continue;
 
       var discTime = normalizeTime(timeEl.textContent || "");
+
+      var discPrice = getDiscPrice(date, discTime);
+      if (typeof discPrice !== "undefined" && Number(discPrice) < DISC_STANDARD_PRICE) {
+        addReducedPriceChip(metaEl, discPrice);
+      }
 
       var closedLock = getClosedTimeLock(date, discTime);
       if (closedLock) {
@@ -250,6 +352,26 @@
   }
 
 
+
+  function loadDiscPricesData() {
+    return fetch(DISC_API, { credentials: "omit" })
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var product = res && res.product ? res.product : null;
+        discPricesByDateTime = buildDiscPriceIndex(product);
+        discPricesLoaded = true;
+        console.log("[DISC PRICES] Priser lastet", discPricesByDateTime);
+        applyAllLocks();
+      })
+      .catch(function (e) {
+        discPricesByDateTime = {};
+        discPricesLoaded = true;
+        console.log("[DISC PRICES] Kunne ikke laste priser:", e);
+        applyAllLocks();
+      });
+  }
+
+
   function loadClosedTimesData() {
     return fetch(CLOSED_TIMES_API, { credentials: "omit" })
       .then(function (r) { return r.json(); })
@@ -283,6 +405,7 @@
 
     loadVenueData();
     loadClosedTimesData();
+    loadDiscPricesData();
 
     var app = document.getElementById(ROOT_ID);
     if (!app) return;
@@ -316,7 +439,7 @@
     s.setAttribute("data-gk-original-disc-booking", "1");
 
     s.onload = function () {
-      console.log("[DISC BOOKING v7] Original disc-booking a743fd1 lastet");
+      console.log("[DISC BOOKING v8] Original disc-booking a743fd1 lastet");
       setTimeout(startOverlay, 150);
     };
 
